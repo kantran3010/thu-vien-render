@@ -14,5 +14,6 @@ module.exports = {
     loanDays: 14, // thời hạn mượn
     renewDays: 7, // số ngày được gia hạn (1 lần/phiếu)
     finePerDay: 2000, // phạt mỗi ngày trả trễ (VNĐ)
+    lockAfterOverdueDays: 7, // quá hạn quá số ngày này thì khóa tài khoản độc giả cho đến khi trả sách và nộp đủ tiền phạt
   },
 };

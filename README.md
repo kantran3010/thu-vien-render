@@ -7,7 +7,7 @@
 ```bash
 npm install
 npm run dev        # http://localhost:3000
-npm test           # 12 kịch bản kiểm thử
+npm test           # 16 kịch bản kiểm thử
 ```
 
 Không có `DATABASE_URL` thì ứng dụng dùng PGlite (PostgreSQL chạy trong bộ nhớ) và nạp dữ liệu mẫu.

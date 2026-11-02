@@ -3,13 +3,14 @@ const db = require('../db');
 const { rules } = require('../config');
 const { requireLogin, requireAdmin, perform } = require('../middleware');
 const loans = require('../services/loans');
+const { syncLocks, accountStatus } = require('../services/accounts');
 
 const router = express.Router();
 const { TODAY } = db;
 
 // Danh sách phiếu mượn (thủ thư). Cột status tính bằng SQL: returned / overdue / borrowing
 const LOAN_SELECT = `
-  SELECT l.*, u.full_name, u.card_code, b.title,
+  SELECT l.*, u.full_name, u.card_code, b.title, a.full_name AS approver_name,
          CASE WHEN l.returned_at IS NOT NULL THEN 'returned'
               WHEN l.due_date < ${TODAY} THEN 'overdue'
               ELSE 'borrowing' END AS status,
@@ -17,9 +18,11 @@ const LOAN_SELECT = `
               THEN (${TODAY} - l.due_date) * ${rules.finePerDay} ELSE l.fine_amount END AS fine
     FROM loans l
     JOIN users u ON u.id = l.user_id
-    JOIN books b ON b.id = l.book_id`;
+    JOIN books b ON b.id = l.book_id
+    LEFT JOIN users a ON a.id = l.approved_by`;
 
 router.get('/loans', requireAdmin, async (req, res) => {
+  await syncLocks(db.get().query);
   const status = ['borrowing', 'overdue', 'returned'].includes(req.query.status) ? req.query.status : '';
   const rows = (await db.get().query(`SELECT * FROM (${LOAN_SELECT}) x ${status ? 'WHERE status = $1' : ''} ORDER BY id DESC LIMIT 200`, status ? [status] : [])).rows;
   res.render('loans/index', { title: 'Phiếu mượn', loans: rows, status });
@@ -32,11 +35,15 @@ router.get('/loans/new', requireAdmin, async (req, res) => {
 });
 
 router.post('/loans', requireAdmin, (req, res) =>
-  perform(res, '/loans/new', () => loans.createLoan(Number(req.body.user_id), Number(req.body.book_id)), (r) => `Đã cho "${r.reader.full_name}" mượn "${r.book.title}" (hạn trả sau ${rules.loanDays} ngày)`)
+  perform(res, '/loans/new', () => loans.createLoan(Number(req.body.user_id), Number(req.body.book_id), req.user.id), (r) => `Đã cho "${r.reader.full_name}" mượn "${r.book.title}" (hạn trả sau ${rules.loanDays} ngày, người duyệt: ${req.user.name})`)
 );
 
 router.post('/loans/:id/return', requireAdmin, (req, res) =>
-  perform(res, '/loans', () => loans.returnLoan(Number(req.params.id)), (r) => (r.fine > 0 ? `Đã nhận trả sách. Tiền phạt trả trễ: ${r.fine.toLocaleString('vi-VN')} đ` : 'Đã nhận trả sách đúng hạn'))
+  perform(res, '/loans', () => loans.returnLoan(Number(req.params.id)), (r) => (r.fine > 0 ? `Đã nhận trả sách. Tiền phạt trả trễ: ${r.fine.toLocaleString('vi-VN')} đ (chưa thu)` : 'Đã nhận trả sách đúng hạn'))
+);
+
+router.post('/loans/:id/pay', requireAdmin, (req, res) =>
+  perform(res, '/loans', () => loans.payFine(Number(req.params.id)), (r) => `Đã thu tiền phạt ${r.amount.toLocaleString('vi-VN')} đ` + (r.stillLocked ? '. Tài khoản vẫn đang khóa vì còn sách quá hạn hoặc còn nợ phạt khác' : ''))
 );
 
 router.post('/loans/:id/renew', requireLogin, (req, res) => {
@@ -46,8 +53,9 @@ router.post('/loans/:id/renew', requireLogin, (req, res) => {
 
 // Độc giả xem sách của mình
 router.get('/my-loans', requireLogin, async (req, res) => {
+  const account = req.user.role === 'reader' ? await accountStatus(req.user.id) : null;
   const rows = (await db.get().query(`SELECT * FROM (${LOAN_SELECT}) x WHERE user_id = $1 ORDER BY id DESC`, [req.user.id])).rows;
-  res.render('loans/mine', { title: 'Sách của tôi', loans: rows });
+  res.render('loans/mine', { title: 'Sách của tôi', loans: rows, account });
 });
 
 module.exports = router;

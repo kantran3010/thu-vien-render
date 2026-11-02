@@ -27,6 +27,8 @@ after(async () => {
 
 const one = async (sql, params) => (await db.get().query(sql, params)).rows[0];
 const userId = async (u) => (await one('SELECT id FROM users WHERE username = $1', [u])).id;
+const newReader = async (username) =>
+  (await one("INSERT INTO users (username, full_name, password_hash, role) VALUES ($1, $1, 'x', 'reader') RETURNING id", [username])).id;
 const bookId = async (isbn) => (await one('SELECT id FROM books WHERE isbn = $1', [isbn])).id;
 
 async function login(username, password) {
@@ -86,7 +88,9 @@ test('API JSON tra cứu sách', async () => {
 test('mượn sách: giảm số bản còn lại, không mượn trùng cuốn đang mượn', async () => {
   const reader = await userId('docgia2');
   const book = await bookId('9786041000042'); // 2 bản
-  await loans.createLoan(reader, book);
+  const admin = await userId('admin');
+  await loans.createLoan(reader, book, admin);
+  assert.equal((await one('SELECT approved_by FROM loans WHERE user_id = $1 AND book_id = $2', [reader, book])).approved_by, admin);
   assert.equal((await one('SELECT available_copies FROM books WHERE id = $1', [book])).available_copies, 1);
   await assert.rejects(async () => loans.createLoan(reader, book), /đang mượn cuốn sách này/);
 });
@@ -138,6 +142,56 @@ test('cuốn sách cuối cùng chỉ cho 1 trong 2 người mượn đồng th�
   const results = await Promise.allSettled([loans.createLoan(await userId('docgia2'), id), loans.createLoan(await userId('docgia4'), id)]);
   assert.equal(results.filter((r) => r.status === 'fulfilled').length, 1);
   assert.equal((await one('SELECT available_copies FROM books WHERE id = $1', [id])).available_copies, 0);
+});
+
+test('quá hạn trên 7 ngày: khóa tài khoản; trả sách mà chưa nộp phạt vẫn khóa; nộp đủ phạt mới mở lại', async () => {
+  const reader = await newReader('thu_khoa');
+  const book = await bookId('9786041000097');
+  const admin = await userId('admin');
+  // phiếu mượn cách đây 30 ngày => quá hạn 16 ngày
+  const loan = await one(
+    `INSERT INTO loans (user_id, book_id, borrowed_at, due_date, approved_by)
+     VALUES ($1, $2, (now() AT TIME ZONE 'Asia/Ho_Chi_Minh')::date - 30, (now() AT TIME ZONE 'Asia/Ho_Chi_Minh')::date - 16, $3) RETURNING id`,
+    [reader, book, admin]
+  );
+  await one('UPDATE books SET available_copies = available_copies - 1 WHERE id = $1', [book]);
+
+  const accounts = require('../src/services/accounts');
+  assert.equal((await accounts.accountStatus(reader)).locked, true);
+  await assert.rejects(async () => loans.createLoan(reader, await bookId('9786041000103'), admin), /bị khóa/);
+  await assert.rejects(async () => loans.renewLoan(loan.id, reader), /quá hạn/);
+
+  const { fine } = await loans.returnLoan(loan.id);
+  assert.equal(fine, 32000); // 16 ngày × 2.000đ
+  let st = await accounts.accountStatus(reader);
+  assert.equal(st.locked, true); // đã trả sách nhưng còn nợ phạt
+  assert.equal(st.debt, 32000);
+
+  const paid = await loans.payFine(loan.id);
+  assert.equal(paid.stillLocked, false);
+  assert.equal((await accounts.accountStatus(reader)).locked, false);
+  await loans.createLoan(reader, await bookId('9786041000103'), admin); // mượn lại được
+  await assert.rejects(async () => loans.payFine(loan.id), /đã được thu/);
+});
+
+test('quá hạn chưa tới 7 ngày thì chưa khóa tài khoản', async () => {
+  const accounts = require('../src/services/accounts');
+  const reader = await newReader('thu_chua_khoa');
+  await one(
+    `INSERT INTO loans (user_id, book_id, borrowed_at, due_date)
+     VALUES ($1, $2, (now() AT TIME ZONE 'Asia/Ho_Chi_Minh')::date - 20, (now() AT TIME ZONE 'Asia/Ho_Chi_Minh')::date - 6)`,
+    [reader, await bookId('9786041000110')]
+  );
+  const st = await accounts.accountStatus(reader); // quá hạn 6 ngày
+  assert.equal(st.locked, false);
+  assert.equal(st.debt, 12000);
+});
+
+test('thủ thư thấy cột người duyệt trong danh sách phiếu mượn', async () => {
+  const { cookie } = await login('admin', 'admin123');
+  const page = await (await fetch(`${base}/loans`, { headers: { cookie } })).text();
+  assert.match(page, /Người duyệt/);
+  assert.match(page, /Thủ thư/);
 });
 
 test('ADMIN_PASSWORD là nguồn sự thật: đổi biến rồi khởi động lại thì mật khẩu thủ thư đổi theo (cắt xuống dòng thừa)', async () => {

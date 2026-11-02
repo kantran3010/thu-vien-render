@@ -68,6 +68,7 @@ async function seedDemo() {
     );
   }
 
+  const approver = (await q("SELECT id FROM users WHERE role = 'admin' ORDER BY id LIMIT 1")).rows[0].id;
   const uid = async (u) => (await q('SELECT id FROM users WHERE username = $1', [u])).rows[0].id;
   const bid = async (isbn) => (await q('SELECT id FROM books WHERE isbn = $1', [isbn])).rows[0].id;
   // [độc giả, isbn, mượn cách đây (ngày), đã trả cách đây (ngày) | null]
@@ -83,11 +84,11 @@ async function seedDemo() {
     const userId = await uid(user);
     const bookId = await bid(isbn);
     await q(
-      `INSERT INTO loans (user_id, book_id, borrowed_at, due_date, returned_at, fine_amount)
+      `INSERT INTO loans (user_id, book_id, borrowed_at, due_date, returned_at, fine_amount, approved_by)
        VALUES ($1, $2, ${TODAY} - $3::int, ${TODAY} - $3::int + $4::int,
                CASE WHEN $5::int IS NULL THEN NULL ELSE ${TODAY} - $5::int END,
-               CASE WHEN $5::int IS NULL THEN 0 ELSE GREATEST(0, (${TODAY} - $5::int) - (${TODAY} - $3::int + $4::int)) * $6::int END)`,
-      [userId, bookId, ago, rules.loanDays, retAgo, rules.finePerDay]
+               CASE WHEN $5::int IS NULL THEN 0 ELSE GREATEST(0, (${TODAY} - $5::int) - (${TODAY} - $3::int + $4::int)) * $6::int END, $7)`,
+      [userId, bookId, ago, rules.loanDays, retAgo, rules.finePerDay, approver]
     );
     if (retAgo === null) await q('UPDATE books SET available_copies = available_copies - 1 WHERE id = $1', [bookId]);
   }

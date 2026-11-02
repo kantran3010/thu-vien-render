@@ -3,6 +3,7 @@ const bcrypt = require('bcryptjs');
 const db = require('../db');
 const { rules } = require('../config');
 const { requireLogin, requireAdmin } = require('../middleware');
+const { syncLocks, accountStatus } = require('../services/accounts');
 
 const router = express.Router();
 const { TODAY } = db;
@@ -11,6 +12,7 @@ const q = (sql, params) => db.get().query(sql, params);
 // Trang chủ: số liệu tổng quan (thủ thư) hoặc tình trạng mượn sách (độc giả)
 router.get('/', requireLogin, async (req, res) => {
   if (req.user.role === 'admin') {
+    await syncLocks(q);
     const stats = (
       await q(`SELECT
         (SELECT count(*)::int FROM books) AS titles,
@@ -19,7 +21,9 @@ router.get('/', requireLogin, async (req, res) => {
         (SELECT count(*)::int FROM users WHERE role = 'reader') AS readers,
         (SELECT count(*)::int FROM loans WHERE returned_at IS NULL) AS borrowing,
         (SELECT count(*)::int FROM loans WHERE returned_at IS NULL AND due_date < ${TODAY}) AS overdue,
-        (SELECT coalesce(sum(fine_amount),0)::int FROM loans WHERE returned_at IS NOT NULL) AS fines`)
+        (SELECT coalesce(sum(fine_amount),0)::int FROM loans WHERE fine_paid_at IS NOT NULL) AS fines,
+        (SELECT coalesce(sum(fine_amount),0)::int FROM loans WHERE returned_at IS NOT NULL AND fine_amount > 0 AND fine_paid_at IS NULL) AS unpaid,
+        (SELECT count(*)::int FROM users WHERE role = 'reader' AND locked_at IS NOT NULL) AS locked`)
     ).rows[0];
     return res.render('dashboard', { title: 'Tổng quan', stats, mine: null });
   }
@@ -28,7 +32,7 @@ router.get('/', requireLogin, async (req, res) => {
                     count(*) FILTER (WHERE returned_at IS NULL AND due_date < ${TODAY})::int AS overdue
                FROM loans WHERE user_id = $1`, [req.user.id])
   ).rows[0];
-  res.render('dashboard', { title: 'Tổng quan', stats: null, mine, rules });
+  res.render('dashboard', { title: 'Tổng quan', stats: null, mine, rules, account: await accountStatus(req.user.id) });
 });
 
 // Báo cáo thống kê
@@ -61,8 +65,11 @@ router.get('/reports', requireAdmin, async (req, res) => {
 
 // Quản lý độc giả
 router.get('/readers', requireAdmin, async (req, res) => {
+  await syncLocks(q);
   const readers = (
-    await q(`SELECT u.id, u.full_name, u.username, u.card_code, u.phone, u.email,
+    await q(`SELECT u.id, u.full_name, u.username, u.card_code, u.phone, u.email, u.locked_at,
+                    coalesce(sum(CASE WHEN l.returned_at IS NOT NULL AND l.fine_amount > 0 AND l.fine_paid_at IS NULL THEN l.fine_amount
+                                      WHEN l.returned_at IS NULL AND l.due_date < ${TODAY} THEN (${TODAY} - l.due_date) * ${rules.finePerDay} END), 0)::int AS debt,
                     count(l.id) FILTER (WHERE l.returned_at IS NULL)::int AS borrowing,
                     count(l.id) FILTER (WHERE l.returned_at IS NULL AND l.due_date < ${TODAY})::int AS overdue
                FROM users u LEFT JOIN loans l ON l.user_id = u.id
@@ -75,7 +82,7 @@ router.post('/readers', requireAdmin, async (req, res) => {
   const f = Object.fromEntries(['username', 'full_name', 'phone', 'email'].map((k) => [k, (req.body[k] || '').trim()]));
   const password = req.body.password || '';
   const render = async (error) => {
-    const readers = (await q("SELECT u.id, u.full_name, u.username, u.card_code, u.phone, u.email, 0 AS borrowing, 0 AS overdue FROM users u WHERE role = 'reader' ORDER BY full_name")).rows;
+    const readers = (await q("SELECT u.id, u.full_name, u.username, u.card_code, u.phone, u.email, u.locked_at, 0 AS debt, 0 AS borrowing, 0 AS overdue FROM users u WHERE role = 'reader' ORDER BY full_name")).rows;
     res.status(400).render('readers', { title: 'Độc giả', readers, error, form: f });
   };
   if (!/^[a-zA-Z0-9_.]{4,30}$/.test(f.username)) return render('Tên đăng nhập gồm 4-30 ký tự chữ, số, dấu chấm hoặc gạch dưới.');

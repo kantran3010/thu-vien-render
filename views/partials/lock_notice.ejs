@@ -1,0 +1,7 @@
+<% if (account && account.locked) { %>
+<div class="alert alert-danger">
+  <strong>Tài khoản của bạn đang bị khóa</strong> do có sách quá hạn trên <%= rules.lockAfterOverdueDays %> ngày.
+  Bạn vẫn xem được thông tin nhưng không thể mượn hoặc gia hạn.
+  Còn nợ: <strong><%= money(account.debt) %></strong>. Hãy trả sách và nộp đủ tiền phạt tại quầy thủ thư để được mở lại.
+</div>
+<% } %>

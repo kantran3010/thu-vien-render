@@ -3,14 +3,15 @@
 <div class="row g-4">
   <div class="col-lg-8">
     <div class="table-responsive card"><table class="table table-hover mb-0">
-      <thead class="table-light"><tr><th>Mã thẻ</th><th>Họ tên</th><th>Liên hệ</th><th class="text-center">Đang mượn</th><th class="text-center">Quá hạn</th><th></th></tr></thead>
+      <thead class="table-light"><tr><th>Mã thẻ</th><th>Họ tên</th><th>Liên hệ</th><th class="text-center">Đang mượn</th><th class="text-center">Quá hạn</th><th>Tài khoản</th><th></th></tr></thead>
       <tbody>
       <% readers.forEach(r => { %>
         <tr><td><%= r.card_code %></td><td><%= r.full_name %><div class="small text-muted">@<%= r.username %></div></td>
           <td class="small"><%= r.phone || '' %><br><%= r.email || '' %></td>
           <td class="text-center"><%= r.borrowing %></td>
           <td class="text-center"><% if (r.overdue) { %><span class="badge text-bg-danger"><%= r.overdue %></span><% } else { %>0<% } %></td>
-          <td class="text-end"><a class="btn btn-sm btn-outline-primary" href="/loans/new?reader=<%= r.id %>">Cho mượn</a></td></tr>
+          <td><% if (r.locked_at) { %><span class="badge text-bg-danger">Bị khóa</span><% } else { %><span class="badge text-bg-success">Hoạt động</span><% } %><% if (r.debt > 0) { %><div class="small text-danger">Nợ <%= money(r.debt) %></div><% } %></td>
+          <td class="text-end"><% if (!r.locked_at) { %><a class="btn btn-sm btn-outline-primary" href="/loans/new?reader=<%= r.id %>">Cho mượn</a><% } %></td></tr>
       <% }) %>
       </tbody>
     </table></div>

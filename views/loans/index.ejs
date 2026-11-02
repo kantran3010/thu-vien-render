@@ -9,7 +9,7 @@
   <% }) %>
 </ul>
 <div class="table-responsive card"><table class="table table-hover mb-0">
-  <thead class="table-light"><tr><th>#</th><th>Độc giả</th><th>Sách</th><th>Ngày mượn</th><th>Hạn trả</th><th>Trạng thái</th><th class="text-end">Phạt</th><th></th></tr></thead>
+  <thead class="table-light"><tr><th>#</th><th>Độc giả</th><th>Sách</th><th>Ngày mượn</th><th>Hạn trả</th><th>Trạng thái</th><th>Người duyệt</th><th class="text-end">Phạt</th><th></th></tr></thead>
   <tbody>
   <% loans.forEach(l => { %>
     <tr>
@@ -18,16 +18,19 @@
       <td><%= l.title %></td><td><%= l.borrowed_at %></td>
       <td><%= l.due_date %><%= l.renewed ? ' (đã gia hạn)' : '' %></td>
       <td><%- include('_status', { l }) %></td>
-      <td class="text-end"><%= l.fine > 0 ? money(l.fine) : '—' %></td>
+      <td class="small"><%= l.approver_name || '—' %></td>
+      <td class="text-end"><%= l.fine > 0 ? money(l.fine) : '—' %><% if (l.returned_at && l.fine > 0) { %><div class="small <%= l.fine_paid_at ? 'text-success' : 'text-danger' %>"><%= l.fine_paid_at ? 'Đã thu' : 'Chưa thu' %></div><% } %></td>
       <td class="text-end text-nowrap">
         <% if (!l.returned_at) { %>
         <form class="d-inline" method="post" action="/loans/<%= l.id %>/return"><button class="btn btn-sm btn-success">Trả sách</button></form>
         <% if (!l.renewed && l.status === 'borrowing') { %><form class="d-inline" method="post" action="/loans/<%= l.id %>/renew"><button class="btn btn-sm btn-outline-secondary">Gia hạn</button></form><% } %>
+        <% } else if (l.fine > 0 && !l.fine_paid_at) { %>
+        <form class="d-inline" method="post" action="/loans/<%= l.id %>/pay"><button class="btn btn-sm btn-warning">Thu phạt</button></form>
         <% } %>
       </td>
     </tr>
   <% }) %>
-  <% if (!loans.length) { %><tr><td colspan="8" class="text-center text-muted py-4">Chưa có phiếu mượn nào.</td></tr><% } %>
+  <% if (!loans.length) { %><tr><td colspan="9" class="text-center text-muted py-4">Chưa có phiếu mượn nào.</td></tr><% } %>
   </tbody>
 </table></div>
 <%- include('../partials/footer') %>

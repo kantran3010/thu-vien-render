@@ -28,3 +28,5 @@ Bản đang chạy: https://thuvien-app.onrender.com
 Biến môi trường: `DATABASE_URL` (tự nối từ `thuvien-db`), `JWT_SECRET` (Render tự sinh), `ADMIN_PASSWORD` (tự nhập), `SEED_DEMO` (`true` để nạp sách/độc giả mẫu).
 
 Lưu ý gói Free: dịch vụ tự tắt sau 15 phút không truy cập; PostgreSQL miễn phí hết hạn sau 30 ngày và không có sao lưu.
+123423432
+

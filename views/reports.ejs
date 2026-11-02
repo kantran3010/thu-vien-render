@@ -1,0 +1,27 @@
+<%- include('partials/header') %>
+<h1 class="h3 mb-4">Báo cáo thống kê</h1>
+<div class="row g-4">
+  <div class="col-md-6"><div class="card h-100"><div class="card-header">Top 5 sách được mượn nhiều nhất</div>
+    <ul class="list-group list-group-flush">
+      <% topBooks.forEach((b, i) => { %><li class="list-group-item d-flex justify-content-between"><span><%= i + 1 %>. <%= b.title %> <small class="text-muted">— <%= b.author %></small></span><span class="badge text-bg-primary"><%= b.times %> lượt</span></li><% }) %>
+      <% if (!topBooks.length) { %><li class="list-group-item text-muted">Chưa có dữ liệu.</li><% } %>
+    </ul></div></div>
+  <div class="col-md-6"><div class="card h-100"><div class="card-header">Lượt mượn theo thể loại</div>
+    <ul class="list-group list-group-flush">
+      <% byCategory.forEach(c => { %><li class="list-group-item d-flex justify-content-between"><span><%= c.category %></span><span class="badge text-bg-secondary"><%= c.times %></span></li><% }) %>
+      <% if (!byCategory.length) { %><li class="list-group-item text-muted">Chưa có dữ liệu.</li><% } %>
+    </ul></div></div>
+  <div class="col-md-6"><div class="card h-100"><div class="card-header">Lượt mượn theo tháng (6 tháng gần nhất)</div>
+    <ul class="list-group list-group-flush">
+      <% monthly.forEach(m => { %><li class="list-group-item d-flex justify-content-between"><span><%= m.month %></span><span class="badge text-bg-info"><%= m.times %></span></li><% }) %>
+      <% if (!monthly.length) { %><li class="list-group-item text-muted">Chưa có dữ liệu.</li><% } %>
+    </ul></div></div>
+  <div class="col-12"><div class="card"><div class="card-header text-danger">Danh sách quá hạn chưa trả</div>
+    <div class="table-responsive"><table class="table mb-0">
+      <thead class="table-light"><tr><th>Độc giả</th><th>Sách</th><th>Hạn trả</th><th>Trễ</th><th class="text-end">Phạt tạm tính</th></tr></thead>
+      <tbody>
+      <% overdue.forEach(o => { %><tr><td><%= o.full_name %> <small class="text-muted"><%= o.card_code %></small></td><td><%= o.title %></td><td><%= o.due_date %></td><td><%= o.days_late %> ngày</td><td class="text-end"><%= money(o.fine) %></td></tr><% }) %>
+      <% if (!overdue.length) { %><tr><td colspan="5" class="text-center text-muted py-3">Không có sách quá hạn 🎉</td></tr><% } %>
+      </tbody></table></div></div></div>
+</div>
+<%- include('partials/footer') %>

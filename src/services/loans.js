@@ -1,0 +1,72 @@
+const db = require('../db');
+const { rules } = require('../config');
+
+const { TODAY } = db;
+
+class AppError extends Error {
+  constructor(message, status = 400) {
+    super(message);
+    this.status = status;
+  }
+}
+
+// Lập phiếu mượn: kiểm tra toàn bộ quy tắc nghiệp vụ trong 1 transaction.
+// Khóa dòng (FOR UPDATE) để hai thủ thư không thể cùng mượn cuốn sách cuối cùng.
+async function createLoan(userId, bookId) {
+  return db.get().tx(async (t) => {
+    const book = (await t.query('SELECT * FROM books WHERE id = $1 FOR UPDATE', [bookId])).rows[0];
+    if (!book) throw new AppError('Không tìm thấy sách', 404);
+    if (book.available_copies <= 0) throw new AppError(`Sách "${book.title}" đã hết bản trong kho`);
+
+    const reader = (await t.query("SELECT id, full_name FROM users WHERE id = $1 AND role = 'reader' FOR UPDATE", [userId])).rows[0];
+    if (!reader) throw new AppError('Không tìm thấy độc giả', 404);
+
+    const active = (await t.query('SELECT book_id, due_date < ' + TODAY + ' AS overdue FROM loans WHERE user_id = $1 AND returned_at IS NULL', [userId])).rows;
+    if (active.some((l) => l.overdue)) throw new AppError(`${reader.full_name} đang có sách quá hạn chưa trả, không thể mượn thêm`);
+    if (active.length >= rules.maxActiveLoans) throw new AppError(`Mỗi độc giả chỉ được mượn tối đa ${rules.maxActiveLoans} cuốn cùng lúc`);
+    if (active.some((l) => l.book_id === book.id)) throw new AppError('Độc giả đang mượn cuốn sách này rồi');
+
+    await t.query(
+      `INSERT INTO loans (user_id, book_id, borrowed_at, due_date)
+       VALUES ($1, $2, ${TODAY}, ${TODAY} + $3::int)`,
+      [userId, bookId, rules.loanDays]
+    );
+    await t.query('UPDATE books SET available_copies = available_copies - 1 WHERE id = $1', [bookId]);
+    return { book, reader };
+  });
+}
+
+// Trả sách: tính tiền phạt = số ngày trễ × đơn giá
+async function returnLoan(loanId) {
+  return db.get().tx(async (t) => {
+    const loan = (await t.query('SELECT * FROM loans WHERE id = $1 FOR UPDATE', [loanId])).rows[0];
+    if (!loan) throw new AppError('Không tìm thấy phiếu mượn', 404);
+    if (loan.returned_at) throw new AppError('Phiếu mượn này đã được trả trước đó');
+
+    const res = await t.query(
+      `UPDATE loans
+          SET returned_at = ${TODAY},
+              fine_amount = GREATEST(0, ${TODAY} - due_date) * $2
+        WHERE id = $1
+    RETURNING fine_amount`,
+      [loanId, rules.finePerDay]
+    );
+    await t.query('UPDATE books SET available_copies = available_copies + 1 WHERE id = $1', [loan.book_id]);
+    return { fine: res.rows[0].fine_amount };
+  });
+}
+
+// Gia hạn: mỗi phiếu 1 lần, chỉ khi chưa quá hạn
+async function renewLoan(loanId, userId = null) {
+  return db.get().tx(async (t) => {
+    const loan = (await t.query('SELECT *, due_date < ' + TODAY + ' AS overdue FROM loans WHERE id = $1 FOR UPDATE', [loanId])).rows[0];
+    if (!loan || (userId && loan.user_id !== userId)) throw new AppError('Không tìm thấy phiếu mượn', 404);
+    if (loan.returned_at) throw new AppError('Sách đã trả, không thể gia hạn');
+    if (loan.renewed) throw new AppError('Phiếu mượn này đã gia hạn 1 lần, không thể gia hạn thêm');
+    if (loan.overdue) throw new AppError('Phiếu đã quá hạn, vui lòng trả sách thay vì gia hạn');
+
+    await t.query('UPDATE loans SET due_date = due_date + $2::int, renewed = true WHERE id = $1', [loanId, rules.renewDays]);
+  });
+}
+
+module.exports = { AppError, createLoan, returnLoan, renewLoan };

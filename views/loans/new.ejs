@@ -1,0 +1,19 @@
+<%- include('../partials/header') %>
+<h1 class="h3 mb-3">Lập phiếu mượn</h1>
+<form class="card card-body" method="post" action="/loans">
+  <div class="row g-3">
+    <div class="col-md-6"><label class="form-label" for="user_id">Độc giả</label>
+      <select class="form-select" id="user_id" name="user_id" required>
+        <option value="">— Chọn độc giả —</option>
+        <% readers.forEach(r => { %><option value="<%= r.id %>" <%= String(r.id) === String(selectedReader) ? 'selected' : '' %>><%= r.full_name %> (<%= r.card_code %>)</option><% }) %>
+      </select></div>
+    <div class="col-md-6"><label class="form-label" for="book_id">Sách (chỉ hiện sách còn bản)</label>
+      <select class="form-select" id="book_id" name="book_id" required>
+        <option value="">— Chọn sách —</option>
+        <% books.forEach(b => { %><option value="<%= b.id %>"><%= b.title %> — <%= b.author %> (còn <%= b.available_copies %>)</option><% }) %>
+      </select></div>
+  </div>
+  <p class="text-muted small mt-3 mb-0">Quy định: tối đa <%= rules.maxActiveLoans %> cuốn/độc giả · thời hạn <%= rules.loanDays %> ngày · gia hạn 1 lần thêm <%= rules.renewDays %> ngày · phạt <%= money(rules.finePerDay) %>/ngày trễ · không cho mượn khi còn sách quá hạn.</p>
+  <div class="mt-3 d-flex gap-2"><button class="btn btn-primary">Cho mượn</button><a class="btn btn-outline-secondary" href="/loans">Về danh sách</a></div>
+</form>
+<%- include('../partials/footer') %>

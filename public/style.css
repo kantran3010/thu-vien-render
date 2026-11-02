@@ -1,0 +1,4 @@
+body { background: #f5f7fb; }
+.stat-card .display-6 { font-weight: 700; }
+.table td, .table th { vertical-align: middle; }
+.auth-box { max-width: 420px; margin: 3rem auto; }

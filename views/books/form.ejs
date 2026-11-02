@@ -1,0 +1,15 @@
+<%- include('../partials/header') %>
+<h1 class="h3 mb-3"><%= title %></h1>
+<% if (error) { %><div class="alert alert-danger"><%= error %></div><% } %>
+<form class="card card-body" method="post" action="<%= action %>">
+  <div class="row g-3">
+    <div class="col-md-8"><label class="form-label" for="title">Tên sách *</label><input class="form-control" id="title" name="title" value="<%= book.title %>" required></div>
+    <div class="col-md-4"><label class="form-label" for="isbn">ISBN</label><input class="form-control" id="isbn" name="isbn" value="<%= book.isbn || '' %>"></div>
+    <div class="col-md-5"><label class="form-label" for="author">Tác giả *</label><input class="form-control" id="author" name="author" value="<%= book.author %>" required></div>
+    <div class="col-md-4"><label class="form-label" for="category">Thể loại *</label><input class="form-control" id="category" name="category" value="<%= book.category %>" required></div>
+    <div class="col-md-3"><label class="form-label" for="publish_year">Năm xuất bản</label><input class="form-control" id="publish_year" name="publish_year" type="number" value="<%= book.publish_year || '' %>"></div>
+    <div class="col-md-3"><label class="form-label" for="total_copies">Tổng số bản *</label><input class="form-control" id="total_copies" name="total_copies" type="number" min="0" value="<%= book.total_copies %>" required></div>
+  </div>
+  <div class="mt-4 d-flex gap-2"><button class="btn btn-primary">Lưu</button><a class="btn btn-outline-secondary" href="/books">Hủy</a></div>
+</form>
+<%- include('../partials/footer') %>

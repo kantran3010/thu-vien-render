@@ -1,0 +1,33 @@
+<%- include('../partials/header') %>
+<div class="d-flex justify-content-between align-items-center mb-3">
+  <h1 class="h3 mb-0">Phiếu mượn</h1>
+  <a class="btn btn-primary" href="/loans/new">+ Lập phiếu mượn</a>
+</div>
+<ul class="nav nav-pills mb-3">
+  <% [['', 'Tất cả'], ['borrowing', 'Đang mượn'], ['overdue', 'Quá hạn'], ['returned', 'Đã trả']].forEach(([v, label]) => { %>
+  <li class="nav-item"><a class="nav-link <%= status === v ? 'active' : '' %>" href="/loans<%= v ? '?status=' + v : '' %>"><%= label %></a></li>
+  <% }) %>
+</ul>
+<div class="table-responsive card"><table class="table table-hover mb-0">
+  <thead class="table-light"><tr><th>#</th><th>Độc giả</th><th>Sách</th><th>Ngày mượn</th><th>Hạn trả</th><th>Trạng thái</th><th class="text-end">Phạt</th><th></th></tr></thead>
+  <tbody>
+  <% loans.forEach(l => { %>
+    <tr>
+      <td><%= l.id %></td>
+      <td><%= l.full_name %><div class="small text-muted"><%= l.card_code %></div></td>
+      <td><%= l.title %></td><td><%= l.borrowed_at %></td>
+      <td><%= l.due_date %><%= l.renewed ? ' (đã gia hạn)' : '' %></td>
+      <td><%- include('_status', { l }) %></td>
+      <td class="text-end"><%= l.fine > 0 ? money(l.fine) : '—' %></td>
+      <td class="text-end text-nowrap">
+        <% if (!l.returned_at) { %>
+        <form class="d-inline" method="post" action="/loans/<%= l.id %>/return"><button class="btn btn-sm btn-success">Trả sách</button></form>
+        <% if (!l.renewed && l.status === 'borrowing') { %><form class="d-inline" method="post" action="/loans/<%= l.id %>/renew"><button class="btn btn-sm btn-outline-secondary">Gia hạn</button></form><% } %>
+        <% } %>
+      </td>
+    </tr>
+  <% }) %>
+  <% if (!loans.length) { %><tr><td colspan="8" class="text-center text-muted py-4">Chưa có phiếu mượn nào.</td></tr><% } %>
+  </tbody>
+</table></div>
+<%- include('../partials/footer') %>

@@ -1,0 +1,24 @@
+<%- include('partials/header') %>
+<div class="auth-box card shadow-sm">
+  <div class="card-body p-4">
+    <h1 class="h4 mb-3">Đăng ký độc giả</h1>
+    <% if (error) { %><div class="alert alert-danger"><%= error %></div><% } %>
+    <form method="post" action="/register">
+      <div class="mb-3"><label class="form-label" for="full_name">Họ và tên</label>
+        <input class="form-control" id="full_name" name="full_name" value="<%= form.full_name || '' %>" required></div>
+      <div class="mb-3"><label class="form-label" for="username">Tên đăng nhập</label>
+        <input class="form-control" id="username" name="username" value="<%= form.username || '' %>" required></div>
+      <div class="mb-3"><label class="form-label" for="password">Mật khẩu (tối thiểu 6 ký tự)</label>
+        <input class="form-control" id="password" name="password" type="password" minlength="6" required></div>
+      <div class="row">
+        <div class="col mb-3"><label class="form-label" for="phone">Điện thoại</label>
+          <input class="form-control" id="phone" name="phone" value="<%= form.phone || '' %>"></div>
+        <div class="col mb-3"><label class="form-label" for="email">Email</label>
+          <input class="form-control" id="email" name="email" type="email" value="<%= form.email || '' %>"></div>
+      </div>
+      <button class="btn btn-primary w-100">Đăng ký</button>
+    </form>
+    <p class="text-center mt-3 mb-0 small">Đã có tài khoản? <a href="/login">Đăng nhập</a></p>
+  </div>
+</div>
+<%- include('partials/footer') %>

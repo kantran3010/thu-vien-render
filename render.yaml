@@ -1,0 +1,30 @@
+# Render Blueprint: khai báo hạ tầng dưới dạng mã (Infrastructure as Code).
+# Render đọc file này và tự tạo 1 Web Service (Node.js) + 1 PostgreSQL, rồi nối chúng với nhau.
+databases:
+  - name: thuvien-db
+    plan: free
+    databaseName: thuvien
+    user: thuvien
+
+services:
+  - type: web
+    name: thuvien-app
+    runtime: node
+    plan: free
+    buildCommand: npm ci --omit=dev
+    startCommand: npm start
+    healthCheckPath: /healthz
+    autoDeploy: true # mỗi lần push lên nhánh chính, Render tự build và deploy lại
+    envVars:
+      - key: NODE_ENV
+        value: production
+      - key: DATABASE_URL
+        fromDatabase:
+          name: thuvien-db
+          property: connectionString
+      - key: JWT_SECRET
+        generateValue: true # Render tự sinh chuỗi ngẫu nhiên, không lưu trong mã nguồn
+      - key: ADMIN_PASSWORD
+        sync: false # nhập tay trên Dashboard khi tạo Blueprint (không commit mật khẩu)
+      - key: SEED_DEMO
+        value: "true" # nạp sách/độc giả mẫu cho lần chạy đầu để demo

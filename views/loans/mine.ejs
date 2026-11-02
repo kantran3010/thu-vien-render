@@ -1,0 +1,18 @@
+<%- include('../partials/header') %>
+<h1 class="h3 mb-3">Sách của tôi</h1>
+<div class="table-responsive card"><table class="table mb-0">
+  <thead class="table-light"><tr><th>Sách</th><th>Ngày mượn</th><th>Hạn trả</th><th>Trạng thái</th><th class="text-end">Phạt</th><th></th></tr></thead>
+  <tbody>
+  <% loans.forEach(l => { %>
+    <tr>
+      <td><%= l.title %></td><td><%= l.borrowed_at %></td><td><%= l.due_date %><%= l.renewed ? ' (đã gia hạn)' : '' %></td>
+      <td><%- include('_status', { l }) %></td>
+      <td class="text-end"><%= l.fine > 0 ? money(l.fine) : '—' %></td>
+      <td class="text-end"><% if (!l.returned_at && !l.renewed && l.status === 'borrowing') { %>
+        <form method="post" action="/loans/<%= l.id %>/renew"><button class="btn btn-sm btn-outline-primary">Gia hạn +<%= rules.renewDays %> ngày</button></form><% } %></td>
+    </tr>
+  <% }) %>
+  <% if (!loans.length) { %><tr><td colspan="6" class="text-center text-muted py-4">Bạn chưa mượn cuốn sách nào.</td></tr><% } %>
+  </tbody>
+</table></div>
+<%- include('../partials/footer') %>

@@ -1,0 +1,2 @@
+<% const map = { borrowing: ['primary', 'Đang mượn'], overdue: ['danger', 'Quá hạn'], returned: ['success', 'Đã trả'] }; %>
+<span class="badge text-bg-<%= map[l.status][0] %>"><%= map[l.status][1] %></span>

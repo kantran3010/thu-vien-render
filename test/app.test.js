@@ -139,3 +139,11 @@ test('cuốn sách cuối cùng chỉ cho 1 trong 2 người mượn đồng th�
   assert.equal(results.filter((r) => r.status === 'fulfilled').length, 1);
   assert.equal((await one('SELECT available_copies FROM books WHERE id = $1', [id])).available_copies, 0);
 });
+
+test('ADMIN_PASSWORD là nguồn sự thật: đổi biến rồi khởi động lại thì mật khẩu thủ thư đổi theo (cắt xuống dòng thừa)', async () => {
+  process.env.ADMIN_PASSWORD = '  mat-khau-moi-123\n';
+  await seed.run();
+  assert.equal((await login('admin', 'admin123')).res.status, 401);
+  assert.equal((await login('admin', 'mat-khau-moi-123')).res.status, 302);
+  delete process.env.ADMIN_PASSWORD;
+});

@@ -28,9 +28,18 @@ const READERS = [
 
 async function ensureAdmin() {
   const q = db.get().query;
-  const exists = (await q("SELECT 1 FROM users WHERE role = 'admin' LIMIT 1")).rows.length > 0;
-  if (exists) return;
-  const password = process.env.ADMIN_PASSWORD || (isProd ? null : 'admin123');
+  // Cắt khoảng trắng/xuống dòng thừa (ô nhập biến môi trường trên Dashboard là ô nhiều dòng)
+  const envPassword = (process.env.ADMIN_PASSWORD || '').trim();
+  const admin = (await q("SELECT id, password_hash FROM users WHERE role = 'admin' ORDER BY id LIMIT 1")).rows[0];
+  if (admin) {
+    // ADMIN_PASSWORD là nguồn sự thật: đổi biến rồi deploy lại thì mật khẩu thủ thư đổi theo
+    if (envPassword && !bcrypt.compareSync(envPassword, admin.password_hash)) {
+      await q('UPDATE users SET password_hash = $1 WHERE id = $2', [bcrypt.hashSync(envPassword, 10), admin.id]);
+      console.log('[seed] Đã đồng bộ mật khẩu thủ thư theo ADMIN_PASSWORD');
+    }
+    return;
+  }
+  const password = envPassword || (isProd ? null : 'admin123');
   if (!password) throw new Error('Cần đặt biến môi trường ADMIN_PASSWORD để tạo tài khoản thủ thư lần đầu');
   const username = process.env.ADMIN_USERNAME || 'admin';
   await q("INSERT INTO users (username, full_name, password_hash, role) VALUES ($1, 'Thủ thư', $2, 'admin')", [

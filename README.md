@@ -17,6 +17,8 @@ Không có `DATABASE_URL` thì ứng dụng dùng PGlite (PostgreSQL chạy tron
 | `admin` (thủ thư) | `admin123` |
 | `docgia1` … `docgia4` (độc giả) | `docgia123` |
 
+Bản đang chạy: https://thuvien-app.onrender.com
+
 ## Triển khai lên Render
 
 1. Đẩy thư mục này lên một kho GitHub (tệp `render.yaml` phải nằm ở thư mục gốc kho).
